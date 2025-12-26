@@ -61,7 +61,8 @@ io.on("connection", (socket) => {
     );
     if (!code || !salas[code]) {
       socket.emit("errorSala", "Sala no encontrada");
-      if (typeof cb === "function") cb({ ok: false, msg: "Sala no encontrada" });
+      if (typeof cb === "function")
+        cb({ ok: false, msg: "Sala no encontrada" });
       return;
     }
     const nuevoJugador = {
