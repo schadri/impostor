@@ -163,14 +163,31 @@
 
       function crearSala() {
         nombreLocal = document.getElementById("input-nombre").value.trim();
-        if (!nombreLocal) return;
+        console.log("[client] crearSala called", {
+          nombreLocal,
+          socketId: socket.id,
+          connected: socket.connected,
+        });
+        if (!nombreLocal) {
+          console.log("[client] crearSala abort: nombre vacío");
+          return;
+        }
         socket.emit("crearSala", nombreLocal);
       }
 
       function unirseSala() {
         nombreLocal = document.getElementById("input-nombre").value.trim();
         const code = document.getElementById("input-codigo").value.trim();
-        if (!nombreLocal || !code) return;
+        console.log("[client] unirseSala called", {
+          nombreLocal,
+          code,
+          socketId: socket.id,
+          connected: socket.connected,
+        });
+        if (!nombreLocal || !code) {
+          console.log("[client] unirseSala abort: falta nombre o código");
+          return;
+        }
         socket.emit("unirseSala", { code, nombre: nombreLocal });
       }
 
