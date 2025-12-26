@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>El Impostor 🎭</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
+        background: #0f172a;
+        color: white;
+      }
+      .card-glass {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col items-center p-5">
+    <div id="pantalla-inicio" class="w-full max-w-sm mt-10">
+      <h1 class="text-5xl font-black text-blue-500 text-center mb-10">
+        IMPOSTOR
+      </h1>
+      <div class="card-glass p-6 rounded-3xl">
+        <input
+          id="input-nombre"
+          type="text"
+          placeholder="Tu nombre..."
+          class="w-full p-4 rounded-2xl bg-slate-900 mb-4 outline-none border border-slate-700 focus:border-blue-500"
+        />
+        <button
+          onclick="unirse()"
+          class="w-full bg-blue-600 p-4 rounded-2xl font-bold text-xl active:scale-95 transition-all"
+        >
+          ENTRAR
+        </button>
+      </div>
+    </div>
+
+    <div id="pantalla-lobby" class="hidden w-full max-w-sm mt-10">
+      <h2 class="text-xl font-bold mb-4 text-slate-300">Jugadores:</h2>
+      <div class="card-glass rounded-3xl overflow-hidden mb-6">
+        <ul id="lista-jugadores" class="divide-y divide-slate-700"></ul>
+      </div>
+
+      <div id="controles-anfitrion" class="hidden">
+        <button
+          onclick="iniciarJuego()"
+          class="w-full bg-green-600 p-4 rounded-2xl font-bold text-lg active:scale-95 shadow-lg shadow-green-900/20"
+        >
+          COMENZAR PARTIDA
+        </button>
+      </div>
+      <div
+        id="espera-anfitrion"
+        class="text-center p-4 bg-slate-800/30 rounded-2xl border border-slate-800"
+      >
+        <p class="text-slate-400 animate-pulse text-sm">
+          Esperando que el Host inicie...
+        </p>
+      </div>
+    </div>
+
+    <div id="pantalla-juego" class="hidden w-full max-w-sm text-center">
+      <p id="instruccion" class="text-lg text-slate-400 mb-8"></p>
+      <div id="controles-escritor" class="hidden space-y-4">
+        <button
+          onclick="pedirPalabraRandom()"
+          class="w-full bg-indigo-600 p-4 rounded-2xl font-bold"
+        >
+          🎲 PALABRA RANDOM
+        </button>
+        <input
+          id="palabra-manual"
+          type="text"
+          class="w-full p-4 rounded-2xl bg-slate-800 border border-slate-600 text-center text-2xl font-black uppercase outline-none"
+        />
+        <button
+          onclick="enviarPalabra()"
+          class="w-full bg-yellow-500 text-black p-4 rounded-2xl font-black"
+        >
+          CONFIRMAR
+        </button>
+      </div>
+      <div id="pantalla-rol" class="hidden">
+        <div
+          id="box-rol"
+          class="p-10 rounded-[40px] border-4 border-slate-700 bg-slate-900 shadow-2xl"
+        >
+          <p class="text-xs uppercase text-slate-400 mb-2 font-bold">Tu rol</p>
+          <h3 id="mi-rol" class="text-4xl font-black mb-6"></h3>
+          <div class="h-[1px] bg-slate-700 w-full mb-6"></div>
+          <p class="text-xs uppercase text-slate-400 mb-2 font-bold">
+            Palabra Secreta
+          </p>
+          <h3 id="mi-palabra" class="text-4xl font-black text-blue-400"></h3>
+        </div>
+        <button
+          onclick="location.reload()"
+          class="mt-10 text-slate-500 text-sm underline"
+        >
+          Salir
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const socket = io("https://impostor-d9ak.onrender.com");
+      let nombreLocal = "";
+
+      function unirse() {
+        nombreLocal = document.getElementById("input-nombre").value.trim();
+        if (!nombreLocal) return;
+        socket.emit("unirse", nombreLocal);
+        cambiarPantalla("pantalla-lobby");
+      }
+
+      socket.on("actualizarLista", (js) => {
+        const lista = document.getElementById("lista-jugadores");
+
+        // Lógica corregida: Verificamos contra socket.id que YA está disponible aquí
+        const yoSoyAnfitrion = js.length > 0 && js[0].id === socket.id;
+
+        if (yoSoyAnfitrion) {
+          document
+            .getElementById("controles-anfitrion")
+            .classList.remove("hidden");
+          document.getElementById("espera-anfitrion").classList.add("hidden");
+        } else {
+          document
+            .getElementById("controles-anfitrion")
+            .classList.add("hidden");
+          document
+            .getElementById("espera-anfitrion")
+            .classList.remove("hidden");
+        }
+
+        lista.innerHTML = js
+          .map(
+            (j, index) => `
+                <li class="p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full ${
+                          index === 0 ? "bg-yellow-500" : "bg-blue-500"
+                        }"></div>
+                        <span class="${
+                          j.id === socket.id
+                            ? "font-black text-white"
+                            : "text-slate-300"
+                        }">${j.nombre}</span>
+                    </div>
+                    ${
+                      index === 0
+                        ? '<span class="text-[9px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full font-black border border-yellow-500/30">HOST</span>'
+                        : ""
+                    }
+                </li>
+            `
+          )
+          .join("");
+      });
+
+      function iniciarJuego() {
+        socket.emit("iniciarJuego");
+      }
+      function pedirPalabraRandom() {
+        socket.emit("pedirPalabraAleatoria");
+      }
+      socket.on("palabraSugerida", (p) => {
+        document.getElementById("palabra-manual").value = p;
+      });
+      function enviarPalabra() {
+        const p = document.getElementById("palabra-manual").value.trim();
+        if (p) socket.emit("palabraElegida", p.toUpperCase());
+      }
+
+      socket.on("rolesAsignados", ({ escritor }) => {
+        cambiarPantalla("pantalla-juego");
+        if (nombreLocal === escritor) {
+          document.getElementById("instruccion").innerText =
+            "¡Sos el Escritor!";
+          document
+            .getElementById("controles-escritor")
+            .classList.remove("hidden");
+        } else {
+          document.getElementById(
+            "instruccion"
+          ).innerText = `Esperando a ${escritor}...`;
+        }
+      });
+
+      socket.on("revelarRol", ({ rol, palabra }) => {
+        document.getElementById("controles-escritor").classList.add("hidden");
+        document.getElementById("pantalla-rol").classList.remove("hidden");
+        document.getElementById("instruccion").classList.add("hidden");
+        document.getElementById("mi-rol").innerText = rol.toUpperCase();
+        document.getElementById("mi-palabra").innerText = palabra;
+        const box = document.getElementById("box-rol");
+        if (rol === "impostor") {
+          document.getElementById("mi-rol").className =
+            "text-4xl font-black mb-6 text-red-500";
+          box.className =
+            "p-10 rounded-[40px] border-4 border-red-600/30 bg-red-950/20 text-center";
+        } else {
+          document.getElementById("mi-rol").className =
+            "text-4xl font-black mb-6 text-green-500";
+          box.className =
+            "p-10 rounded-[40px] border-4 border-green-600/30 bg-green-950/10 text-center";
+        }
+      });
+
+      function cambiarPantalla(id) {
+        ["pantalla-inicio", "pantalla-lobby", "pantalla-juego"].forEach((p) =>
+          document.getElementById(p).classList.add("hidden")
+        );
+        document.getElementById(id).classList.remove("hidden");
+      }
+    </script>
+  </body>
+</html>
