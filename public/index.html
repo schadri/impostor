@@ -133,6 +133,19 @@
         window.location.hostname === "127.0.0.1"
           ? io()
           : io(RENDER_BACKEND);
+      // Debug: report connection status
+      socket.on("connect", () => {
+        console.log("[socket] connected", socket.id);
+      });
+      socket.on("connect_error", (err) => {
+        console.error("[socket] connect_error", err);
+      });
+      socket.on("error", (err) => {
+        console.error("[socket] error", err);
+      });
+      socket.on("disconnect", (reason) => {
+        console.log("[socket] disconnect", reason);
+      });
       let nombreLocal = "";
 
       function crearSala() {
