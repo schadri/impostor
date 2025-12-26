@@ -36,7 +36,7 @@ function generarCodigo(longitud = 4) {
 io.on("connection", (socket) => {
   console.log(`[io] connection ${socket.id} from ${socket.handshake.address}`);
   // Crear una sala y unirse como anfitrión
-  socket.on("crearSala", (nombre) => {
+  socket.on("crearSala", (nombre, cb) => {
     console.log(`[io] crearSala from ${socket.id} nombre=${nombre}`);
     const code = generarCodigo();
     salas[code] = { jugadores: [], backupPalabras: backupPalabras.slice() };
@@ -51,15 +51,17 @@ io.on("connection", (socket) => {
     socket.data.room = code;
     io.to(code).emit("actualizarLista", salas[code].jugadores);
     socket.emit("salaCreada", code);
+    if (typeof cb === "function") cb({ ok: true, code });
   });
 
   // Unirse a una sala existente por código
-  socket.on("unirseSala", ({ code, nombre }) => {
+  socket.on("unirseSala", ({ code, nombre }, cb) => {
     console.log(
       `[io] unirseSala from ${socket.id} code=${code} nombre=${nombre}`
     );
     if (!code || !salas[code]) {
       socket.emit("errorSala", "Sala no encontrada");
+      if (typeof cb === "function") cb({ ok: false, msg: "Sala no encontrada" });
       return;
     }
     const nuevoJugador = {
@@ -75,6 +77,7 @@ io.on("connection", (socket) => {
     socket.data.room = code;
     io.to(code).emit("actualizarLista", salas[code].jugadores);
     socket.emit("salaUnida", code);
+    if (typeof cb === "function") cb({ ok: true, code });
   });
 
   // Iniciar juego en la sala del socket

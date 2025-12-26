@@ -172,7 +172,9 @@
           console.log("[client] crearSala abort: nombre vacío");
           return;
         }
-        socket.emit("crearSala", nombreLocal);
+        socket.emit("crearSala", nombreLocal, (resp) => {
+          console.log("[client] crearSala ack", resp);
+        });
       }
 
       function unirseSala() {
@@ -188,7 +190,9 @@
           console.log("[client] unirseSala abort: falta nombre o código");
           return;
         }
-        socket.emit("unirseSala", { code, nombre: nombreLocal });
+        socket.emit("unirseSala", { code, nombre: nombreLocal }, (resp) => {
+          console.log("[client] unirseSala ack", resp);
+        });
       }
 
       socket.on("actualizarLista", (js) => {
