@@ -34,10 +34,8 @@ function generarCodigo(longitud = 4) {
 }
 
 io.on("connection", (socket) => {
-  console.log(`[io] connection ${socket.id} from ${socket.handshake.address}`);
   // Crear una sala y unirse como anfitrión
   socket.on("crearSala", (nombre, cb) => {
-    console.log(`[io] crearSala from ${socket.id} nombre=${nombre}`);
     const code = generarCodigo();
     salas[code] = { jugadores: [], backupPalabras: backupPalabras.slice() };
     const nuevoJugador = {
@@ -56,9 +54,6 @@ io.on("connection", (socket) => {
 
   // Unirse a una sala existente por código
   socket.on("unirseSala", ({ code, nombre }, cb) => {
-    console.log(
-      `[io] unirseSala from ${socket.id} code=${code} nombre=${nombre}`
-    );
     if (!code || !salas[code]) {
       socket.emit("errorSala", "Sala no encontrada");
       if (typeof cb === "function")
@@ -83,7 +78,6 @@ io.on("connection", (socket) => {
 
   // Iniciar juego en la sala del socket
   socket.on("iniciarJuego", () => {
-    console.log(`[io] iniciarJuego from ${socket.id} room=${socket.data.room}`);
     const code = socket.data.room;
     if (!code || !salas[code]) return;
     const jugadores = salas[code].jugadores;
@@ -103,9 +97,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("pedirPalabraAleatoria", async () => {
-    console.log(
-      `[io] pedirPalabraAleatoria from ${socket.id} room=${socket.data.room}`
-    );
     const code = socket.data.room;
     try {
       const response = await fetch(
@@ -128,9 +119,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("palabraElegida", (p) => {
-    console.log(
-      `[io] palabraElegida from ${socket.id} palabra=${p} room=${socket.data.room}`
-    );
     const code = socket.data.room;
     if (!code || !salas[code]) return;
     const jugadores = salas[code].jugadores;
@@ -143,7 +131,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log(`[io] disconnect ${socket.id} room=${socket.data.room}`);
     const code = socket.data.room;
     if (code && salas[code]) {
       salas[code].jugadores = salas[code].jugadores.filter(

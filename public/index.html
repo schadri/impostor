@@ -132,67 +132,29 @@
       // en caso contrario usamos same-origin para localhost.
       let socket;
       if (RENDER_BACKEND && RENDER_BACKEND !== "") {
-        console.log("[client] usando RENDER_BACKEND:", RENDER_BACKEND);
         socket = io(RENDER_BACKEND);
       } else if (
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1"
       ) {
-        console.log("[client] usando same-origin (localhost)");
         socket = io();
       } else {
-        console.log(
-          "[client] RENDER_BACKEND no configurado, usando same-origin por defecto"
-        );
         socket = io();
       }
-      // Debug: report connection status
-      socket.on("connect", () => {
-        console.log("[socket] connected", socket.id);
-      });
-      socket.on("connect_error", (err) => {
-        console.error("[socket] connect_error", err);
-      });
-      socket.on("error", (err) => {
-        console.error("[socket] error", err);
-      });
-      socket.on("disconnect", (reason) => {
-        console.log("[socket] disconnect", reason);
-      });
+
       let nombreLocal = "";
 
       function crearSala() {
         nombreLocal = document.getElementById("input-nombre").value.trim();
-        console.log("[client] crearSala called", {
-          nombreLocal,
-          socketId: socket.id,
-          connected: socket.connected,
-        });
-        if (!nombreLocal) {
-          console.log("[client] crearSala abort: nombre vacío");
-          return;
-        }
-        socket.emit("crearSala", nombreLocal, (resp) => {
-          console.log("[client] crearSala ack", resp);
-        });
+        if (!nombreLocal) return;
+        socket.emit("crearSala", nombreLocal);
       }
 
       function unirseSala() {
         nombreLocal = document.getElementById("input-nombre").value.trim();
         const code = document.getElementById("input-codigo").value.trim();
-        console.log("[client] unirseSala called", {
-          nombreLocal,
-          code,
-          socketId: socket.id,
-          connected: socket.connected,
-        });
-        if (!nombreLocal || !code) {
-          console.log("[client] unirseSala abort: falta nombre o código");
-          return;
-        }
-        socket.emit("unirseSala", { code, nombre: nombreLocal }, (resp) => {
-          console.log("[client] unirseSala ack", resp);
-        });
+        if (!nombreLocal || !code) return;
+        socket.emit("unirseSala", { code, nombre: nombreLocal });
       }
 
       socket.on("actualizarLista", (js) => {
