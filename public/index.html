@@ -35,12 +35,25 @@
           placeholder="Tu nombre..."
           class="w-full p-4 rounded-2xl bg-slate-900 mb-4 outline-none border border-slate-700 focus:border-blue-500"
         />
-        <button
-          onclick="unirse()"
-          class="w-full bg-blue-600 p-4 rounded-2xl font-bold text-xl active:scale-95 transition-all"
-        >
-          ENTRAR
-        </button>
+        <div class="grid gap-3">
+          <div class="flex gap-2">
+            <input
+              id="input-codigo"
+              type="text"
+              placeholder="Código sala"
+              class="flex-1 p-3 rounded-2xl bg-slate-900 outline-none border border-slate-700"
+            />
+            <button onclick="unirseSala()" class="bg-slate-700 p-3 rounded-2xl">
+              UNIRSE
+            </button>
+          </div>
+          <button
+            onclick="crearSala()"
+            class="w-full bg-blue-600 p-4 rounded-2xl font-bold text-xl active:scale-95 transition-all"
+          >
+            CREAR SALA
+          </button>
+        </div>
       </div>
     </div>
 
@@ -112,14 +125,21 @@
     </div>
 
     <script>
-      const socket = io("https://impostor-d9ak.onrender.com");
+      // Usar conexión same-origin para facilitar pruebas locales
+      const socket = io();
       let nombreLocal = "";
 
-      function unirse() {
+      function crearSala() {
         nombreLocal = document.getElementById("input-nombre").value.trim();
         if (!nombreLocal) return;
-        socket.emit("unirse", nombreLocal);
-        cambiarPantalla("pantalla-lobby");
+        socket.emit("crearSala", nombreLocal);
+      }
+
+      function unirseSala() {
+        nombreLocal = document.getElementById("input-nombre").value.trim();
+        const code = document.getElementById("input-codigo").value.trim();
+        if (!nombreLocal || !code) return;
+        socket.emit("unirseSala", { code, nombre: nombreLocal });
       }
 
       socket.on("actualizarLista", (js) => {
@@ -195,6 +215,27 @@
           ).innerText = `Esperando a ${escritor}...`;
         }
       });
+
+      // Recibir código de sala al crear/unirse
+      socket.on("salaCreada", (code) => {
+        document.getElementById("codigo-sala")?.remove();
+        const el = document.createElement("p");
+        el.id = "codigo-sala";
+        el.className = "text-center text-slate-400 mt-4";
+        el.innerText = `Código de sala: ${code}`;
+        document.getElementById("pantalla-lobby").prepend(el);
+        cambiarPantalla("pantalla-lobby");
+      });
+      socket.on("salaUnida", (code) => {
+        document.getElementById("codigo-sala")?.remove();
+        const el = document.createElement("p");
+        el.id = "codigo-sala";
+        el.className = "text-center text-slate-400 mt-4";
+        el.innerText = `Conectado a: ${code}`;
+        document.getElementById("pantalla-lobby").prepend(el);
+        cambiarPantalla("pantalla-lobby");
+      });
+      socket.on("errorSala", (msg) => alert(msg));
 
       socket.on("revelarRol", ({ rol, palabra }) => {
         document.getElementById("controles-escritor").classList.add("hidden");
