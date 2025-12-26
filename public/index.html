@@ -128,11 +128,24 @@
       // Configurable: si estás en localhost usamos same-origin,
       // si está desplegado en Vercel/otro host, reemplaza RENDER_BACKEND por la URL de tu servicio en Render
       const RENDER_BACKEND = "https://impostor-d9ak.onrender.com"; // <-- reemplaza esto con tu URL de Render
-      const socket =
+      // Elegir backend explícitamente: si `RENDER_BACKEND` está definido lo usamos siempre (útil en Vercel),
+      // en caso contrario usamos same-origin para localhost.
+      let socket;
+      if (RENDER_BACKEND && RENDER_BACKEND !== "") {
+        console.log("[client] usando RENDER_BACKEND:", RENDER_BACKEND);
+        socket = io(RENDER_BACKEND);
+      } else if (
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1"
-          ? io()
-          : io(RENDER_BACKEND);
+      ) {
+        console.log("[client] usando same-origin (localhost)");
+        socket = io();
+      } else {
+        console.log(
+          "[client] RENDER_BACKEND no configurado, usando same-origin por defecto"
+        );
+        socket = io();
+      }
       // Debug: report connection status
       socket.on("connect", () => {
         console.log("[socket] connected", socket.id);
