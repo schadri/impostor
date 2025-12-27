@@ -93,11 +93,18 @@
           </p>
           <h3 id="mi-palabra" class="text-4xl font-black text-blue-400"></h3>
         </div>
-        <button
+        <!-- <button
           onclick="nuevaPartida()"
           class="mt-10 text-slate-500 text-sm underline"
         >
           Nueva Partida / Salir
+        </button> -->
+
+        <button
+          onclick="reset()"
+          class="mt-10 text-slate-500 text-sm underline"
+        >
+          Reiniciar
         </button>
       </div>
     </div>
@@ -157,6 +164,13 @@
         localStorage.removeItem("imp_rol");
         localStorage.removeItem("imp_palabra");
         location.reload();
+      }
+
+      function reset() {
+        localStorage.removeItem("imp_rol");
+        localStorage.removeItem("imp_palabra");
+        const c = document.getElementById("input-codigo").value.toUpperCase();
+        entrarLobby(c);
       }
 
       socket.on("salaCreada", (code) => {
