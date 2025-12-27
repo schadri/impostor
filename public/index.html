@@ -93,13 +93,14 @@
           </p>
           <h3 id="mi-palabra" class="text-4xl font-black text-blue-400"></h3>
         </div>
-        <!-- <button
+        <button
           onclick="nuevaPartida()"
           class="mt-10 text-slate-500 text-sm underline"
         >
-          Nueva Partida / Salir
-        </button> -->
-
+          Salir
+        </button>
+      </div>
+      <div>
         <button
           onclick="reset()"
           class="mt-10 text-slate-500 text-sm underline"
@@ -166,13 +167,30 @@
         location.reload();
       }
 
+      // function reset() {
+      //   localStorage.removeItem("imp_rol");
+      //   localStorage.removeItem("imp_palabra");
+      //   const c = document.getElementById("input-codigo").value.toUpperCase();
+      //   entrarLobby(c);
+      // }
       function reset() {
+        // 1. Borrar datos del navegador
         localStorage.removeItem("imp_rol");
         localStorage.removeItem("imp_palabra");
+
+        // 2. Limpiar textos de la pantalla para que no se vea lo anterior
+        document.getElementById("mi-rol").innerText = "";
+        document.getElementById("mi-palabra").innerText = "";
+        document.getElementById("palabra-manual").value = "";
+        document.getElementById("instruccion").innerText = "";
+
+        // 3. Ocultar el cuadro visual del rol
+        document.getElementById("pantalla-rol").classList.add("hidden");
+
+        // 4. Volver al lobby (tu lógica original)
         const c = document.getElementById("input-codigo").value.toUpperCase();
         entrarLobby(c);
       }
-
       socket.on("salaCreada", (code) => {
         localStorage.setItem("imp_sala", code);
         entrarLobby(code);
