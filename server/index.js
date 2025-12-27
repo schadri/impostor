@@ -2,16 +2,15 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
-const path = require("path");
-// Servir archivos estáticos del cliente
 app.use(express.static(path.join(__dirname, "../public")));
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// Estructura de salas: { [codigo]: { jugadores: [ {id,nombre,rol,anfitrion} ], backupPalabras: [...]} }
 const salas = {};
 const backupPalabras = [
   "PIZZA",
@@ -28,60 +27,57 @@ function generarCodigo(longitud = 4) {
   let code = "";
   for (let i = 0; i < longitud; i++)
     code += chars[Math.floor(Math.random() * chars.length)];
-  // Asegurar unicidad básica
   if (salas[code]) return generarCodigo(longitud);
   return code;
 }
 
 io.on("connection", (socket) => {
-  // Crear una sala y unirse como anfitrión
-  socket.on("crearSala", (nombre, cb) => {
+  socket.on("crearSala", (nombre) => {
     const code = generarCodigo();
-    salas[code] = { jugadores: [], backupPalabras: backupPalabras.slice() };
-    const nuevoJugador = {
-      id: socket.id,
-      nombre: nombre || "Jugador",
-      rol: null,
-      anfitrion: true,
-    };
+    salas[code] = { jugadores: [], palabraActual: null, enJuego: false };
+    const nuevoJugador = { id: socket.id, nombre, rol: null, anfitrion: true };
     salas[code].jugadores.push(nuevoJugador);
     socket.join(code);
     socket.data.room = code;
     io.to(code).emit("actualizarLista", salas[code].jugadores);
     socket.emit("salaCreada", code);
-    if (typeof cb === "function") cb({ ok: true, code });
   });
 
-  // Unirse a una sala existente por código
-  socket.on("unirseSala", ({ code, nombre }, cb) => {
+  socket.on("unirseSala", ({ code, nombre }) => {
     if (!code || !salas[code]) {
       socket.emit("errorSala", "Sala no encontrada");
-      if (typeof cb === "function")
-        cb({ ok: false, msg: "Sala no encontrada" });
       return;
     }
-    const nuevoJugador = {
-      id: socket.id,
-      nombre: nombre || "Jugador",
-      rol: null,
-      anfitrion: false,
-    };
+
+    let jugadorExistente = salas[code].jugadores.find(
+      (j) => j.nombre === nombre
+    );
+
+    if (jugadorExistente) {
+      jugadorExistente.id = socket.id;
+      socket.join(code);
+      socket.data.room = code;
+      socket.emit("salaUnida", code);
+      io.to(code).emit("actualizarLista", salas[code].jugadores);
+      return;
+    }
+
+    const nuevoJugador = { id: socket.id, nombre, rol: null, anfitrion: false };
     salas[code].jugadores.push(nuevoJugador);
-    // recalcular anfitrión
-    salas[code].jugadores.forEach((j, i) => (j.anfitrion = i === 0));
     socket.join(code);
     socket.data.room = code;
     io.to(code).emit("actualizarLista", salas[code].jugadores);
     socket.emit("salaUnida", code);
-    if (typeof cb === "function") cb({ ok: true, code });
   });
 
-  // Iniciar juego en la sala del socket
   socket.on("iniciarJuego", () => {
     const code = socket.data.room;
-    if (!code || !salas[code]) return;
+    if (!salas[code]) return;
     const jugadores = salas[code].jugadores;
-    if (jugadores.length < 3) return;
+
+    salas[code].enJuego = true;
+    salas[code].palabraActual = null;
+
     const idxEscritor = Math.floor(Math.random() * jugadores.length);
     const escritor = jugadores[idxEscritor];
     let posiblesImpostores = jugadores.filter((j) => j.id !== escritor.id);
@@ -96,8 +92,19 @@ io.on("connection", (socket) => {
     io.to(code).emit("rolesAsignados", { escritor: escritor.nombre });
   });
 
-  socket.on("pedirPalabraAleatoria", async () => {
+  socket.on("palabraElegida", (p) => {
     const code = socket.data.room;
+    if (!salas[code]) return;
+    salas[code].palabraActual = p;
+    salas[code].jugadores.forEach((j) => {
+      io.to(j.id).emit("revelarRol", {
+        rol: j.rol,
+        palabra: j.rol === "impostor" ? "???" : p,
+      });
+    });
+  });
+
+  socket.on("pedirPalabraAleatoria", async () => {
     try {
       const response = await fetch(
         "https://clientes.api.greenborn.com.ar/public-random-word"
@@ -109,50 +116,12 @@ io.on("connection", (socket) => {
         .toUpperCase();
       socket.emit("palabraSugerida", p);
     } catch (e) {
-      const lista =
-        code && salas[code] ? salas[code].backupPalabras : backupPalabras;
       socket.emit(
         "palabraSugerida",
-        lista[Math.floor(Math.random() * lista.length)]
+        backupPalabras[Math.floor(Math.random() * backupPalabras.length)]
       );
     }
   });
-
-  socket.on("palabraElegida", (p) => {
-    const code = socket.data.room;
-    if (!code || !salas[code]) return;
-    const jugadores = salas[code].jugadores;
-    jugadores.forEach((j) => {
-      io.to(j.id).emit("revelarRol", {
-        rol: j.rol,
-        palabra: j.rol === "impostor" ? "???" : p,
-      });
-    });
-  });
-
-  socket.on("disconnect", () => {
-    const code = socket.data.room;
-    if (code && salas[code]) {
-      salas[code].jugadores = salas[code].jugadores.filter(
-        (j) => j.id !== socket.id
-      );
-      if (salas[code].jugadores.length > 0) {
-        salas[code].jugadores.forEach((j, i) => (j.anfitrion = i === 0));
-        io.to(code).emit("actualizarLista", salas[code].jugadores);
-      } else {
-        // eliminar sala vacía
-        delete salas[code];
-      }
-    }
-  });
-});
-
-// Endpoint simple para comprobar existencia de sala
-app.get("/salas/:code", (req, res) => {
-  const code = req.params.code;
-  if (!code || !salas[code])
-    return res.status(404).json({ ok: false, msg: "Sala no encontrada" });
-  res.json({ ok: true, jugadores: salas[code].jugadores.length });
 });
 
 server.listen(process.env.PORT || 10000);

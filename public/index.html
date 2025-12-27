@@ -33,7 +33,7 @@
           id="input-nombre"
           type="text"
           placeholder="Tu nombre..."
-          class="w-full p-4 rounded-2xl bg-slate-900 mb-4 outline-none border border-slate-700 focus:border-blue-500"
+          class="w-full p-4 rounded-2xl bg-slate-900 mb-4 outline-none border border-slate-700"
         />
         <div class="grid gap-3">
           <div class="flex gap-2">
@@ -49,7 +49,7 @@
           </div>
           <button
             onclick="crearSala()"
-            class="w-full bg-blue-600 p-4 rounded-2xl font-bold text-xl active:scale-95 transition-all"
+            class="w-full bg-blue-600 p-4 rounded-2xl font-bold text-xl"
           >
             CREAR SALA
           </button>
@@ -57,32 +57,9 @@
       </div>
     </div>
 
-    <div id="pantalla-lobby" class="hidden w-full max-w-sm mt-10">
-      <h2 class="text-xl font-bold mb-4 text-slate-300">Jugadores:</h2>
-      <div class="card-glass rounded-3xl overflow-hidden mb-6">
-        <ul id="lista-jugadores" class="divide-y divide-slate-700"></ul>
-      </div>
-
-      <div id="controles-anfitrion" class="hidden">
-        <button
-          onclick="iniciarJuego()"
-          class="w-full bg-green-600 p-4 rounded-2xl font-bold text-lg active:scale-95 shadow-lg shadow-green-900/20"
-        >
-          COMENZAR PARTIDA
-        </button>
-      </div>
-      <div
-        id="espera-anfitrion"
-        class="text-center p-4 bg-slate-800/30 rounded-2xl border border-slate-800"
-      >
-        <p class="text-slate-400 animate-pulse text-sm">
-          Esperando que el Host inicie...
-        </p>
-      </div>
-    </div>
-
     <div id="pantalla-juego" class="hidden w-full max-w-sm text-center">
       <p id="instruccion" class="text-lg text-slate-400 mb-8"></p>
+
       <div id="controles-escritor" class="hidden space-y-4">
         <button
           onclick="pedirPalabraRandom()"
@@ -102,6 +79,7 @@
           CONFIRMAR
         </button>
       </div>
+
       <div id="pantalla-rol" class="hidden">
         <div
           id="box-rol"
@@ -116,167 +94,155 @@
           <h3 id="mi-palabra" class="text-4xl font-black text-blue-400"></h3>
         </div>
         <button
-          onclick="location.reload()"
+          onclick="nuevaPartida()"
           class="mt-10 text-slate-500 text-sm underline"
         >
-          Salir
+          Nueva Partida / Salir
         </button>
       </div>
     </div>
 
-    <script>
-      // Configurable: si estás en localhost usamos same-origin,
-      // si está desplegado en Vercel/otro host, reemplaza RENDER_BACKEND por la URL de tu servicio en Render
-      const RENDER_BACKEND = "https://impostor-d9ak.onrender.com"; // <-- reemplaza esto con tu URL de Render
-      // Elegir backend explícitamente: si `RENDER_BACKEND` está definido lo usamos siempre (útil en Vercel),
-      // en caso contrario usamos same-origin para localhost.
-      let socket;
-      if (RENDER_BACKEND && RENDER_BACKEND !== "") {
-        socket = io(RENDER_BACKEND);
-      } else if (
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1"
-      ) {
-        socket = io();
-      } else {
-        socket = io();
-      }
+    <div id="pantalla-lobby" class="hidden w-full max-w-sm mt-10 text-center">
+      <p id="txt-sala" class="mb-4 text-blue-400 font-bold"></p>
+      <div id="controles-anfitrion" class="hidden">
+        <button
+          onclick="socket.emit('iniciarJuego')"
+          class="bg-green-600 p-4 w-full rounded-2xl font-bold"
+        >
+          EMPEZAR
+        </button>
+      </div>
+      <p id="espera-msg" class="text-slate-500 animate-pulse">
+        Esperando jugadores...
+      </p>
+      <ul
+        id="lista-jugadores"
+        class="mt-4 card-glass rounded-2xl divide-y divide-slate-700"
+      ></ul>
+    </div>
 
-      let nombreLocal = "";
+    <script>
+      const socket = io("https://impostor-d9ak.onrender.com");
+
+      window.onload = () => {
+        const n = localStorage.getItem("imp_nombre");
+        const c = localStorage.getItem("imp_sala");
+        const r = localStorage.getItem("imp_rol");
+        const p = localStorage.getItem("imp_palabra");
+
+        if (n) document.getElementById("input-nombre").value = n;
+        if (c) document.getElementById("input-codigo").value = c;
+
+        // RECONEXIÓN VISUAL INMEDIATA
+        if (n && c && r && p) {
+          mostrarRolUI(r, p);
+        }
+      };
 
       function crearSala() {
-        nombreLocal = document.getElementById("input-nombre").value.trim();
-        if (!nombreLocal) return;
-        socket.emit("crearSala", nombreLocal);
+        const n = document.getElementById("input-nombre").value;
+        localStorage.setItem("imp_nombre", n);
+        socket.emit("crearSala", n);
       }
 
       function unirseSala() {
-        nombreLocal = document.getElementById("input-nombre").value.trim();
-        const code = document.getElementById("input-codigo").value.trim();
-        if (!nombreLocal || !code) return;
-        socket.emit("unirseSala", { code, nombre: nombreLocal });
+        const n = document.getElementById("input-nombre").value;
+        const c = document.getElementById("input-codigo").value.toUpperCase();
+        localStorage.setItem("imp_nombre", n);
+        localStorage.setItem("imp_sala", c);
+        socket.emit("unirseSala", { code: c, nombre: n });
+      }
+
+      function nuevaPartida() {
+        localStorage.removeItem("imp_rol");
+        localStorage.removeItem("imp_palabra");
+        location.reload();
+      }
+
+      socket.on("salaCreada", (code) => {
+        localStorage.setItem("imp_sala", code);
+        entrarLobby(code);
+      });
+
+      socket.on("salaUnida", (code) => entrarLobby(code));
+
+      function entrarLobby(code) {
+        cambiarPantalla("pantalla-lobby");
+        document.getElementById("txt-sala").innerText = "SALA: " + code;
       }
 
       socket.on("actualizarLista", (js) => {
-        const lista = document.getElementById("lista-jugadores");
-
-        // Lógica corregida: Verificamos contra socket.id que YA está disponible aquí
-        const yoSoyAnfitrion = js.length > 0 && js[0].id === socket.id;
-
-        if (yoSoyAnfitrion) {
-          document
-            .getElementById("controles-anfitrion")
-            .classList.remove("hidden");
-          document.getElementById("espera-anfitrion").classList.add("hidden");
-        } else {
-          document
-            .getElementById("controles-anfitrion")
-            .classList.add("hidden");
-          document
-            .getElementById("espera-anfitrion")
-            .classList.remove("hidden");
-        }
-
-        lista.innerHTML = js
-          .map(
-            (j, index) => `
-                <li class="p-4 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-2 h-2 rounded-full ${
-                          index === 0 ? "bg-yellow-500" : "bg-blue-500"
-                        }"></div>
-                        <span class="${
-                          j.id === socket.id
-                            ? "font-black text-white"
-                            : "text-slate-300"
-                        }">${j.nombre}</span>
-                    </div>
-                    ${
-                      index === 0
-                        ? '<span class="text-[9px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full font-black border border-yellow-500/30">HOST</span>'
-                        : ""
-                    }
-                </li>
-            `
-          )
+        const yo = localStorage.getItem("imp_nombre");
+        const esHost = js[0].nombre === yo;
+        document
+          .getElementById("controles-anfitrion")
+          .classList.toggle("hidden", !esHost);
+        document
+          .getElementById("espera-msg")
+          .classList.toggle("hidden", esHost);
+        document.getElementById("lista-jugadores").innerHTML = js
+          .map((j) => `<li class="p-3">${j.nombre}</li>`)
           .join("");
       });
 
-      function iniciarJuego() {
-        socket.emit("iniciarJuego");
-      }
-      function pedirPalabraRandom() {
-        socket.emit("pedirPalabraAleatoria");
-      }
-      socket.on("palabraSugerida", (p) => {
-        document.getElementById("palabra-manual").value = p;
-      });
-      function enviarPalabra() {
-        const p = document.getElementById("palabra-manual").value.trim();
-        if (p) socket.emit("palabraElegida", p.toUpperCase());
-      }
-
       socket.on("rolesAsignados", ({ escritor }) => {
+        const yo = localStorage.getItem("imp_nombre");
         cambiarPantalla("pantalla-juego");
-        if (nombreLocal === escritor) {
+        if (yo === escritor) {
           document.getElementById("instruccion").innerText =
             "¡Sos el Escritor!";
           document
             .getElementById("controles-escritor")
             .classList.remove("hidden");
         } else {
-          document.getElementById(
-            "instruccion"
-          ).innerText = `Esperando a ${escritor}...`;
+          document.getElementById("instruccion").innerText =
+            "Esperando palabra...";
         }
       });
-
-      // Recibir código de sala al crear/unirse
-      socket.on("salaCreada", (code) => {
-        document.getElementById("codigo-sala")?.remove();
-        const el = document.createElement("p");
-        el.id = "codigo-sala";
-        el.className = "text-center text-slate-400 mt-4";
-        el.innerText = `Código de sala: ${code}`;
-        document.getElementById("pantalla-lobby").prepend(el);
-        cambiarPantalla("pantalla-lobby");
-      });
-      socket.on("salaUnida", (code) => {
-        document.getElementById("codigo-sala")?.remove();
-        const el = document.createElement("p");
-        el.id = "codigo-sala";
-        el.className = "text-center text-slate-400 mt-4";
-        el.innerText = `Conectado a: ${code}`;
-        document.getElementById("pantalla-lobby").prepend(el);
-        cambiarPantalla("pantalla-lobby");
-      });
-      socket.on("errorSala", (msg) => alert(msg));
 
       socket.on("revelarRol", ({ rol, palabra }) => {
+        localStorage.setItem("imp_rol", rol);
+        localStorage.setItem("imp_palabra", palabra);
+        mostrarRolUI(rol, palabra);
+      });
+
+      function mostrarRolUI(rol, palabra) {
+        cambiarPantalla("pantalla-juego");
+        document.getElementById("instruccion").classList.add("hidden");
         document.getElementById("controles-escritor").classList.add("hidden");
         document.getElementById("pantalla-rol").classList.remove("hidden");
-        document.getElementById("instruccion").classList.add("hidden");
+
         document.getElementById("mi-rol").innerText = rol.toUpperCase();
-        document.getElementById("mi-palabra").innerText = palabra;
+        document.getElementById("mi-palabra").innerText =
+          rol === "impostor" ? "???" : palabra;
+
         const box = document.getElementById("box-rol");
-        if (rol === "impostor") {
-          document.getElementById("mi-rol").className =
-            "text-4xl font-black mb-6 text-red-500";
-          box.className =
-            "p-10 rounded-[40px] border-4 border-red-600/30 bg-red-950/20 text-center";
-        } else {
-          document.getElementById("mi-rol").className =
-            "text-4xl font-black mb-6 text-green-500";
-          box.className =
-            "p-10 rounded-[40px] border-4 border-green-600/30 bg-green-950/10 text-center";
-        }
-      });
+        box.className =
+          rol === "impostor"
+            ? "p-10 rounded-[40px] border-4 border-red-600/30 bg-red-950/20 text-center"
+            : "p-10 rounded-[40px] border-4 border-green-600/30 bg-green-950/10 text-center";
+        document.getElementById("mi-rol").className =
+          "text-4xl font-black mb-6 " +
+          (rol === "impostor" ? "text-red-500" : "text-green-500");
+      }
 
       function cambiarPantalla(id) {
         ["pantalla-inicio", "pantalla-lobby", "pantalla-juego"].forEach((p) =>
           document.getElementById(p).classList.add("hidden")
         );
         document.getElementById(id).classList.remove("hidden");
+      }
+
+      function pedirPalabraRandom() {
+        socket.emit("pedirPalabraAleatoria");
+      }
+      socket.on(
+        "palabraSugerida",
+        (p) => (document.getElementById("palabra-manual").value = p)
+      );
+      function enviarPalabra() {
+        const p = document.getElementById("palabra-manual").value;
+        if (p) socket.emit("palabraElegida", p.toUpperCase());
       }
     </script>
   </body>
